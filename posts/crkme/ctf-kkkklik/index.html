@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en-us"><head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+   <meta name="description" content="A few weeks ago, the DEF CON CTF Qualifier for 2023 took place during the weekend. I was pretty bored and had nothing to do, so I decided to give the reversing challenge a try. Unfortunately, I was not able to find the flag within the given time limit. Still, I was able to learn a lot and had a lot of fun. Here’s an (incomplete) write-up for the challenge.">  
+
+  <title>
+    
+      CTF:kkkklik.exe
+    
+  </title>
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/" />
+  
+  
+  
+  <link rel="stylesheet" href="/css/main.fff14b023195c4f11d6ac59eafb4a3561f19908a85a34b8823f1c45053de61b22dea5a76e02ec4dacdd896fe31e63241b236f64a581176531d4011876f3b8649.css" integrity="sha512-//FLAjGVxPEdasWer7SjVh8ZkIqFo0uII/HEUFPeYbIt6lp24C7E2s3Ylv4x5jJBsjb2SlgRdlMdQBGHbzuGSQ==" />
+  
+</head>
+<body a="auto">
+        <main class="page-content" aria-label="Content">
+            <div class="w">
+<a href="/">..</a>
+
+<article>
+    <p class="post-meta">
+        <time datetime="2023-06-29 00:00:00 &#43;0000 UTC">
+            2023-06-29
+        </time>
+    </p>
+
+    <h1>CTF:kkkklik.exe</h1>
+
+    
+
+    <p>A few weeks ago, the DEF CON CTF Qualifier for 2023 took place during the weekend. I was pretty bored and had nothing to do, so I decided to give the reversing challenge a try.  Unfortunately, I was not able to find the flag within the given time limit. Still, I was able to learn a lot and had a lot of fun. Here’s an <em>(incomplete)</em> write-up for the challenge.</p>
+<p><code>The file’s name is “kkkklik.exe — a Windows 32 bit binary. The objective given to us is to find the flag.</code></p>
+<p><strong>Analysis</strong></p>
+<p><img src="Untitled.png" alt="Untitled"></p>
+<p>Taking a look the binary information, we can see that it is Visual Basic file and a GUI application.</p>
+<p>Upon opening the .exe file, we will only see a window displaying an image. No changes occur, but the window can be moved. The program is likely waiting for user interaction to continue.  After the image is clicked,  some events will occur depending on the condition.</p>
+<p><strong>First Condition — When click count reaches 1337:</strong></p>
+<p><img src="Untitled%201.png" alt="Untitled"></p>
+<p>Once the image is clicked 1337 times, we are asked for an encryption key.</p>
+<p><img src="Untitled%202.png" alt="Untitled"></p>
+<p>I tried the value “A”, and it gave back the encrypted result like so.</p>
+<p>&ldquo;rJ8chUMRKeRQnDiY+7WPHMZv8CkPtr3A8UEk82lNk8l8anhURE3vuQ==&rdquo;&quot;</p>
+<p>After taking time to test out different inputs, I gained a bit of an understanding of how the encryption algorithm worked.</p>
+<p><strong>Second Condition — When click count reaches 133337:</strong></p>
+<p>For the second condition, no message box appears. However, it seems that this is where the drawing functions are handled.</p>
+<p><img src="Untitled%203.png" alt="Untitled"></p>
+<p>The <code>LineTo</code> function’s breakpoint is triggered for each line drawn. Here, the encryption key is drawn, which will be used for next condition.</p>
+<p><strong>Last Condition — When click count reaches 1333337:</strong></p>
+<p><img src="Untitled%204.png" alt="Untitled"></p>
+<p>A message box with an encrypted flag appears. This flag is possibly encrypted with the same encryption algorithm from the first condition.</p>
+<p>—</p>
+<p>To summarize our observations, the first condition allows us to enter a key for a certain encryption algorithm. The encryption algorithm used is possibly the same algorithm in the last condition. In the second condition, a key is drawn.  Subsequently, this key can then be used to decrypt the encrypted text that shows up in the last condition.</p>
+<p>Let’s investigate the encryption algorithm.</p>
+<p><strong>Encryption Algorithm</strong></p>
+<p><strong>Initialization  — for P and S box using the key</strong></p>
+<p>Earlier, I tried using the input “A” as our key for the first condition. We were able to get our encrypted result , but how was it processed?</p>
+<p><img src="Untitled%205.png" alt="Untitled"></p>
+<p><em>Figure 1 - Load boxes snippet (Array of length 18 values are set (0..17))</em></p>
+<p>The P box and S boxes values are initialized and are loaded to arrays (I <em>named them Array18 and Array4x266</em>), and will be used to generate the round subkeys that are applied during the encryption and decryption process.</p>
+<p><img src="Untitled%206.png" alt="Untitled"></p>
+<p><em>Figure 2 - Each of the subkey is changed with respect to the key</em></p>
+<p>An array of length 18 <em>(Array18</em>) is our permutation box, and for each iteration,  operations are performed to modify and scramble the values based on the key.  A 4x256 matrix (Array4x266) is  called as for our substituion mechanism.</p>
+<p><img src="Untitled%207.png" alt="Untitled"></p>
+<p><em>Figure 3 - Encipher block that was called</em></p>
+<p>During Initialization phase, I noticed that <code>EncipherBlock()</code> function was called. It is used to encrypt two words, and is the core of our encryption algorithm. This is function is very important as this will be used to understand the encryption and decryption of the flag.</p>
+<p><img src="Untitled%208.png" alt="Untitled"></p>
+<p>So, what we know far is that the encryption algorithm incorporates a Feistel cipher. In the Feistel cipher, the input is divided into halves (<em>L and R</em>). Several rounds of mixing and substitution operations are applied to these haves, and are combined together.</p>
+<p><strong>Finding the Key</strong></p>
+<p>There is a condition that uses drawing functions to draw something. Since we do not know what it is trying to draw, let’s try to recreate it.</p>
+<p><img src="Untitled%209.png" alt="Untitled"></p>
+<p><em>Figure 1 - Arguments for drawing (I used CE since memory scan is easier)</em></p>
+<p><code>0x00FF0000</code> is an RGB representation of the color red. The 32-bit integer value is converted from  hex— 0x00RRGGBB: R which denotes red, G which denotes green, and B which denotes blue.</p>
+<p>The other values <code>4485C000, 41F0000, 4482000, 4220000</code> are pushed to the stack. These values comprise of our coordinates which are used as arguments for our draw function.</p>
+<p>The values: <code>30.00,1070.00</code> is are our x1, and y1 coordinates. The latter, <code>40.00, 1040.00</code> are our x2, and y2 coordinates.</p>
+<p>The draw function is called for multiple lines, and of course different coordinates are passed.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">for</span> line <span style="color:#f92672">in</span> lines:
+</span></span><span style="display:flex;"><span>    x1, y1, x2, y2 <span style="color:#f92672">=</span> line
+</span></span><span style="display:flex;"><span>    draw<span style="color:#f92672">.</span>line([(x1, y1), (x2, y2)])
+</span></span></code></pre></div><p><em>Figure 2 - Pseudocode example</em></p>
+<p>Each of the lines drawn are made up of the coordinates we found earlier.</p>
+<p><img src="Untitled%2010.png" alt="Untitled"></p>
+<p><em>Figure 3 - Draw line for each x1,y1, and x2,y2 coordinate</em></p>
+<p>We are able to obtain the key <code>AKAMI1337</code>.</p>
+<p><strong>Conclusion</strong></p>
+<p>We were able to understand the encryption algorithm, and found the key that will decrypt the flag. All that remains is for us to do is to create the decryption script (which can be made information we have gathered)  I will revisit this write-up at a later time and share my solution.</p>
+
+</article>
+
+            </div>
+        </main>
+    </body></html>

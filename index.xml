@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>mizt0&#39;s blog</title>
+    <link>https://mizt0.github.io/</link>
+    <description>Recent content on mizt0&#39;s blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 25 Aug 2022 21:30:04 +0800</lastBuildDate><atom:link href="https://mizt0.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>CTF:kkkklik.exe</title>
+      <link>https://mizt0.github.io/posts/crkme/ctf-kkkklik/</link>
+      <pubDate>Thu, 29 Jun 2023 00:00:00 +0000</pubDate>
+      
+      <guid>https://mizt0.github.io/posts/crkme/ctf-kkkklik/</guid>
+      <description>A few weeks ago, the DEF CON CTF Qualifier for 2023 took place during the weekend. I was pretty bored and had nothing to do, so I decided to give the reversing challenge a try. Unfortunately, I was not able to find the flag within the given time limit. Still, I was able to learn a lot and had a lot of fun. Here’s an (incomplete) write-up for the challenge.</description>
+    </item>
+    
+    <item>
+      <title>Unity IL2CPP Exploration</title>
+      <link>https://mizt0.github.io/posts/all/unity-il2cpp/</link>
+      <pubDate>Sun, 11 Jun 2023 00:00:00 +0000</pubDate>
+      
+      <guid>https://mizt0.github.io/posts/all/unity-il2cpp/</guid>
+      <description>Objective today: Obtain the game’s source code / important metadata
+In the previous post, I wrote about Unity’s default scripting backend (Mono) and discussed how it can be vulnerable to modifications for game hacking/ modding. I explained that the game’s underlying mechanics could easily be decompiled since the source code was accessible. In today’s write-up, I will share how I reverse engineered IL2CPP, which is very different from Mono. I will share information about the IL2CPP backend and the my attempt of obtaining an IL2CPP game’s source code.</description>
+    </item>
+    
+    <item>
+      <title>Unity Mono Game Hacking</title>
+      <link>https://mizt0.github.io/posts/all/unity-mono/</link>
+      <pubDate>Sun, 07 May 2023 00:00:00 +0000</pubDate>
+      
+      <guid>https://mizt0.github.io/posts/all/unity-mono/</guid>
+      <description>In this write-up, I will share how Unity mono games can be reversed to create a simple hack. After that, I will showcase a proof-of-concept injector that I have made which will inject any hack to a target mono game.
+The first part covers information about Unity, and the creation of the hack. I chose to reverse the game Ravenfield, which is a shooter game developed by SteelRaven7. It is a fun game to play, and I highly suggest checking it out.</description>
+    </item>
+    
+    <item>
+      <title>CrackMe:crckme-minivm</title>
+      <link>https://mizt0.github.io/posts/crkme/crkme-minivm/</link>
+      <pubDate>Tue, 07 Feb 2023 00:00:00 +0000</pubDate>
+      
+      <guid>https://mizt0.github.io/posts/crkme/crkme-minivm/</guid>
+      <description>I recently got interested in code virtualization, and wanted to learn how to deobfuscate this type of technique. In order to learn more, I will attempt to solve a simple vm (virtual machine) crack me. We will be looking at miniVMCrackme1 by Craig Smith, which was published on June 9, 2008. It has a difficulty of 2, and was created to demonstrate how VMs work.
+Before we get started, I will quickly go over code virtualization and virtual machine usage.</description>
+    </item>
+    
+    <item>
+      <title>CrackMe:crkme1-win32</title>
+      <link>https://mizt0.github.io/posts/crkme/crkme1-win32/</link>
+      <pubDate>Tue, 31 Jan 2023 00:00:00 +0000</pubDate>
+      
+      <guid>https://mizt0.github.io/posts/crkme/crkme1-win32/</guid>
+      <description>I recently heard of Z3, an SMT solver, and wanted to find more about it. Before I could use Z3, I needed to find a binary that I could practice with. I browsed the internet and discovered a YouTube video where a specific binary was used. I decided to choose the crack me, crkme1-win32, by Damo2k. It was published on January 12, 2008, and with a difficulty of 2. The crack me was similar to the binary used in the YouTube video, and it was intended to be simple— it was perfect to practice and learn more about Z3.</description>
+    </item>
+    
+  </channel>
+</rss>
