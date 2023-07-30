@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en-us"><head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+   <meta name="description" content="I recently got interested in code virtualization, and wanted to learn how to deobfuscate this type of technique. In order to learn more, I will attempt to solve a simple vm (virtual machine) crack me. We will be looking at miniVMCrackme1 by Craig Smith, which was published on June 9, 2008. It has a difficulty of 2, and was created to demonstrate how VMs work.
+Before we get started, I will quickly go over code virtualization and virtual machine usage.">  
+
+  <title>
+    
+      CrackMe:crckme-minivm
+    
+  </title>
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/" />
+  
+  
+  
+  <link rel="stylesheet" href="/css/main.00560f858a9781071a6d5647bcb31b19ba3fedbd628c7fbab8cda30e40cfb52ac46cba7961320e250962ad9eed59fe491958fce64619a841076cb489a4643095.css" integrity="sha512-AFYPhYqXgQcabVZHvLMbGbo/7b1ijH&#43;6uM2jDkDPtSrEbLp5YTIOJQlirZ7tWf5JGVj85kYZqEEHbLSJpGQwlQ==" />
+  
+</head>
+<body a="auto">
+        <main class="page-content" aria-label="Content">
+            <div class="w">
+<a href="/">..</a>
+
+<article>
+    <p class="post-meta">
+        <time datetime="2023-02-07 00:00:00 &#43;0000 UTC">
+            2023-02-07
+        </time>
+    </p>
+
+    <h1>CrackMe:crckme-minivm</h1>
+
+    
+
+    <p>I recently got interested in code virtualization, and wanted to learn how to deobfuscate this type of technique. In order to learn more, I will attempt to solve a simple vm (virtual machine) crack me. We will be looking at miniVMCrackme1 by Craig Smith, which was published on June 9, 2008. It has a difficulty of 2, and was created to demonstrate how VMs work.</p>
+<p>Before we get started, I will quickly go over code virtualization and virtual machine usage. Code virtualizaiton is an obfuscation technique. It uses a virtual machine (VM), a mechanism used to execute a different instruction set than the one used by machine that runs the program.</p>
+<p><strong>The Challenge</strong></p>
+<p><code>Find a valid password, write a solution detailing the techniques used to analyze the VM. Patching is not allowed</code></p>
+<p>The executable is desktop program, with a GUI. When the executable is run, a window appears with an input box. Upon entering a random string, “abcdefg”, a dialog box appears telling us that our password is incorrect.</p>
+<p><strong>Static Analysis</strong></p>
+<p>The executable is a Windows application, since Win32 functions such as ShowWindow are listed in its imports.  From the imports, I looked at where GetWindowTextLengthA is called.  It was called in DialogFunc, which contains the operations relating to the GUI.</p>
+<p>—</p>
+<p>The GetWindowTextLengthA function was called to check if what was entered in the input box is not empty ( jumps if below or equal to one). If it was, then it jumps to loc_40190E, jumping to the end of our DialogFunc. Otherwise, it continues to the following block of code:</p>
+<pre tabindex="0"><code class="language-assembbly" data-lang="assembbly">push    offset unk_403034 ; lParam
+push    14h             ; wParam
+push    0Dh             ; Msg
+push    dword_403030    ; hWnd
+call    SendMessageA
+mov     eax, offset unk_403049
+mov     dword ptr [eax], offset unk_403034
+push    offset dword_4016BC
+push    offset unk_403049
+call    CallVm_401000
+mov     eax, offset unk_403049
+mov     eax, [eax]
+mov     ebx, offset ShowResult
+add     ebx, eax
+call    ebx
+</code></pre><p>(<em>sidenote: some functions have already been renamed)</em></p>
+<p>It seems that this is where the virtual machine operation is located. The bytecode of the virtual machine (dword_4016BC), and unk_403049- that stores our input string (password) are pushed to the stack. After that, CallVm_401000 is called.</p>
+<pre tabindex="0"><code class="language-assembbly" data-lang="assembbly">CallVm_401000 proc near
+pop     ebx
+pop     eax
+mov     dword_40301C, eax
+pop     eax
+mov     dword_403010, eax
+mov     dword_403014, eax
+pusha
+mov     dword_403020, 0
+mov     dword_403018, 0
+call    sub_40102F
+popa
+push    ebx
+retn
+CallVm_401000 endp ; 
+</code></pre><p>The pop instruction retrieves what was pushed in the stack. Earlier, <code>dword_4016BC</code> containing our bytecode, and <code>unk_403049</code> containing our input string was pushed to the stack. These values are stored in the virtual registers of the virtual machine.</p>
+<p>We can assume that the virtual registers are: <code>dword_40301C, dword_403010, dword_403014, dword_403020, and dword_403018</code> . After looking at each of their cross references, we can see that these values are used like registers.</p>
+<p>Let us take a look at its control flow graph of <code>sub_40102F</code> , which is called.</p>
+<p><img src="Untitled.png" alt="Untitled"></p>
+<p><em>Figure 1: Control Flow of VM</em></p>
+<p>We see the graph has a central basic block, as apparent on the top-most left corner. This is the dispatcher which directs the control flow to individual basic blocks called handlers.</p>
+<pre tabindex="0"><code class="language-assembbly" data-lang="assembbly">sub_40102F      proc near               ; CODE XREF: CallVm_401000+27↑p
+.text:0040102F                                         ; sub_40102F:loc_40107C↓j
+.text:0040102F                 mov     ebx, dword_403010
+.text:00401035                 xor     eax, eax
+.text:00401037                 xor     ecx, ecx
+.text:00401039                 xor     edx, edx
+.text:0040103B                 mov     al, [ebx]
+.text:0040103D                 mov     dl, al
+.text:0040103F                 and     dl, 0Fh
+.text:00401042                 and     al, 0F0h
+.text:00401044                 cmp     al, 0C0h
+.text:00401046                 jz      short loc_40107E
+.text:00401048                 cmp     al, 0B0h
+.text:0040104A                 jz      short loc_401085
+.text:0040104C                 cmp     al, 0D0h
+.text:0040104E                 jz      short loc_40108C
+.text:00401050                 cmp     al, 0E0h
+.text:00401052                 jz      short loc_401093
+.text:00401054                 cmp     al, 0
+.text:00401056                 jz      short loc_40109A
+.text:00401058                 cmp     al, 10h
+.text:0040105A                 jz      short loc_4010A1
+.text:0040105C                 cmp     al, 20h ; &#39; &#39;
+.text:0040105E                 jz      short loc_4010A8
+.text:00401060                 cmp     al, 30h ; &#39;0&#39;
+.text:00401062                 jz      short loc_4010B6
+.text:00401064                 cmp     al, 50h ; &#39;P&#39;
+.text:00401066                 jz      short loc_4010BD
+.text:00401068                 cmp     al, 60h ; &#39;`&#39;
+.text:0040106A                 jz      short loc_4010C4
+.text:0040106C                 cmp     al, 40h ; &#39;@&#39;
+.text:0040106E                 jnz     short sub_4010D3
+.text:00401070                 cmp     dl, 3
+.text:00401073                 jz      short locret_4010D2
+.text:00401075                 jmp     short loc_4010CB
+</code></pre><p>Looking at this assembly code, we can know that the logic continues based on the bytecode, or opcode. Before control flow is redirected to a different handler, the bytecode must meet a certain condition in order to execute.</p>
+<p>For example, if <code>al</code> is equal to <code>0C0h</code>, it will short jump to <code>loc_40107E</code>.</p>
+<pre tabindex="0"><code class="language-assembbly" data-lang="assembbly">.text:0040107E loc_40107E:                             ; CODE XREF: sub_40102F+17↑j
+.text:0040107E                 call    sub_4010F8
+.text:00401083                 jmp     short loc_401077
+</code></pre><p>It calls the handler we will have to reverse <code>sub_4010F8</code>.  The handler will contain the code that will execute for the specific bytecode of <code>0C0h</code></p>
+<p><strong>Dynamic Analysis</strong></p>
+<p>Usually, a virtual machine works by iterating the bytecode array and decoding the corresponding instruction.   Analyzing the program with a debugger will help us confirm our assumptions.</p>
+<pre tabindex="0"><code class="language-assembbly" data-lang="assembbly">.text:004016BC dword_4016BC    dd 0CBB039h, 0CA000000h, 0
+.text:004016BC                                         ; DATA XREF: DialogFunc+B4↓o
+.text:004016C8                 dd 0FF4042h, 0D80000h, 20000000h, 26h, 0E93B3063h, 0C10B0h
+.text:004016C8                 dd 9AC80000h, 3000002h, 0D8h, 3C2000h, 10320000h, 42h
+.text:004016C8                 dd 18CAh, 4E433200h, 61686F65h, 73697370h
+.text:00401708
+</code></pre><p>Earlier, we know that <code>dword_4016BC</code> contains our bytecode. The logic continues based on each opcode.</p>
+<p><strong>Disasembler</strong></p>
+<p>We can try to create a disassembler to show how the virtual machine works.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>data <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;39b0cb00000000ca000000004240ff000000d800000000202600000063303be9b0100c000000c89a02000003d800000000203c000000321042000000ca180000003243&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>arr, i<span style="color:#f92672">=</span> [],<span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> x <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">0</span>, len(data), <span style="color:#ae81ff">2</span>):
+</span></span><span style="display:flex;"><span>    arr<span style="color:#f92672">.</span>append(int(data[x:x<span style="color:#f92672">+</span><span style="color:#ae81ff">2</span>], <span style="color:#ae81ff">16</span>))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">while</span> i <span style="color:#f92672">&lt;</span> len(arr):
+</span></span><span style="display:flex;"><span>    instr <span style="color:#f92672">=</span> arr[i]
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x39</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#39;MOV R2, [R8 + R7]&#39;</span>)
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;MOV R7, 4&#34;</span>)
+</span></span><span style="display:flex;"><span>        i<span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xb0</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;MOV R1, R2&#34;</span>)
+</span></span><span style="display:flex;"><span>        i<span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># +5 </span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xcb</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;MOV R4, &#34;</span> <span style="color:#f92672">+</span> hex(arr[i<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>]))
+</span></span><span style="display:flex;"><span>        i<span style="color:#f92672">+=</span> <span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xca</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;MOV R3, &#34;</span> <span style="color:#f92672">+</span> hex(arr[i<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>]))
+</span></span><span style="display:flex;"><span>        i<span style="color:#f92672">+=</span> <span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x42</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;MOV R1, [R1]&#34;</span>)
+</span></span><span style="display:flex;"><span>        i<span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x40</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;AND R1, &#34;</span> <span style="color:#f92672">+</span> hex(arr[i<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>]))
+</span></span><span style="display:flex;"><span>        i<span style="color:#f92672">+=</span> <span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xd8</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;CMP R1, &#34;</span> <span style="color:#f92672">+</span> hex(arr[i<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>]))    
+</span></span><span style="display:flex;"><span>        i<span style="color:#f92672">+=</span> <span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x20</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;JNZ R6 + &#34;</span> <span style="color:#f92672">+</span> hex(arr[i<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>]))
+</span></span><span style="display:flex;"><span>        i<span style="color:#f92672">+=</span><span style="color:#ae81ff">5</span> 
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x63</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;ADD R1, R4&#34;</span>)
+</span></span><span style="display:flex;"><span>        i <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x30</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;SUB R7, 4&#34;</span>)
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;MOV [R8+R7], R1&#34;</span>)
+</span></span><span style="display:flex;"><span>        i <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x3b</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;MOV R4, [R8 + R7]&#34;</span>)
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;ADD 7, 4&#34;</span>)
+</span></span><span style="display:flex;"><span>        i <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xe9</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;INC R2&#34;</span>)
+</span></span><span style="display:flex;"><span>        i <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span> 
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x10</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;JMP R6 + &#34;</span> <span style="color:#f92672">+</span> hex(arr[i<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>]))
+</span></span><span style="display:flex;"><span>        i <span style="color:#f92672">+=</span> <span style="color:#ae81ff">5</span> 
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xc8</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;MOV R1, &#34;</span> <span style="color:#f92672">+</span> hex(arr[i<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>]))
+</span></span><span style="display:flex;"><span>        i<span style="color:#f92672">+=</span> <span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x03</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;XOR R1, R4&#34;</span>)
+</span></span><span style="display:flex;"><span>        i <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span> 
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x32</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;SUB R7, 4&#34;</span>)
+</span></span><span style="display:flex;"><span>        i <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> instr <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x43</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;ret&#34;</span>)
+</span></span><span style="display:flex;"><span>        i <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>
+</span></span></code></pre></div>
+</article>
+
+            </div>
+        </main>
+    </body></html>

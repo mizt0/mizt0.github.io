@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en-us"><head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+   <meta name="description" content="In this write-up, I will share how Unity mono games can be reversed to create a simple hack. After that, I will showcase a proof-of-concept injector that I have made which will inject any hack to a target mono game.
+The first part covers information about Unity, and the creation of the hack. I chose to reverse the game Ravenfield, which is a shooter game developed by SteelRaven7. It is a fun game to play, and I highly suggest checking it out.">  
+
+  <title>
+    
+      Unity Mono Game Hacking
+    
+  </title>
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/" />
+  
+  
+  
+  <link rel="stylesheet" href="/css/main.00560f858a9781071a6d5647bcb31b19ba3fedbd628c7fbab8cda30e40cfb52ac46cba7961320e250962ad9eed59fe491958fce64619a841076cb489a4643095.css" integrity="sha512-AFYPhYqXgQcabVZHvLMbGbo/7b1ijH&#43;6uM2jDkDPtSrEbLp5YTIOJQlirZ7tWf5JGVj85kYZqEEHbLSJpGQwlQ==" />
+  
+</head>
+<body a="auto">
+        <main class="page-content" aria-label="Content">
+            <div class="w">
+<a href="/">..</a>
+
+<article>
+    <p class="post-meta">
+        <time datetime="2023-05-07 00:00:00 &#43;0000 UTC">
+            2023-05-07
+        </time>
+    </p>
+
+    <h1>Unity Mono Game Hacking</h1>
+
+    
+
+    <p>In this write-up, I will share how Unity mono games can be reversed to create a simple hack. After that, I will showcase a proof-of-concept injector that I have made which will inject any hack to a target mono game.</p>
+<p>The first part covers information about Unity, and the creation of the hack. I chose to reverse the game Ravenfield, which is a shooter game developed by SteelRaven7.  It is a fun game to play, and I highly suggest checking it out. The second part covers the creation of the mono injector, which has I have coded in Rust. I chose this language as I am currently learning it right now. I do apologize if my code is not implementing the best practices.</p>
+<p>Before we get started, this write-up is for educational purposes. I do not condone cheating in any way, and just want to share my learnings.</p>
+<p><strong>Part One</strong></p>
+<p>Unity is a cross-platform game engine developed by Unity Technologies. It is considered easy to use for beginner developers, and is popular for indie game development. Many games are being actively developed with Unity engine today, which is one of the reasons why I decided to research more on this game engine.</p>
+<p>By default, Unity games use the mono scripting backend to compile code at runtime.  Unity uses a fork of Mono, which is an open-source implementation of Microsoft&rsquo;s .NET Framework. This allows developers to build games for many different platforms.</p>
+<p>We will hack a Unity game that uses mono: Ravenfield. It is a first-person shooter game which I enjoy playing, and will serve as an example of how Unity mono games can be hacked.  Note that the information from this write-up can not only be applied to Ravenfield, but any Unity mono game.</p>
+<p><strong>Part 1: Creating a Hack</strong></p>
+<p><strong>Getting Information from Unity Scripts</strong></p>
+<p>Unity allows developers to write scripts that instruct how the game will behave. This is essentially the game logic that contains information such as what to do when a button is clicked, or how x will effect y in the game.</p>
+<p>These Unity scripts that are written in C# get translated to Intermediate Language, or IL. IL has a lot of metadata so that it can be compiled onto different processor architectures. Thus, the classes and methods in these scripts remain largely intact.</p>
+<p>Before we can write a hack, we must understand how the game works. Typically, reversing a game usually involve reading long lines of assembly code, and debugging the game.  This is a long process, however, in our case it is much simpler. Unity scripts can be decompiled to readable source code because of the IL’s metadata.</p>
+<p>Unity compiles all scripts into this file.</p>
+<p>Let us locate the file, “Assembly-CSharp.dll”. This file, or so-called assembly, is a C# code library that contains the compiled classes and structs of the scripts of the game. After decompiling it, we will be able to find namespaces and classes, and identify what we can change to alter the gameplay.</p>
+<p>It is located in the managed folder, of which the game is located:</p>
+<p><img src="Untitled.png" alt="Untitled"></p>
+<p><img src="Untitled%201.png" alt="Untitled"></p>
+<p><em>Figure 1: The weapon that the actor (ActorManager / local player) is using.</em></p>
+<p><img src="Untitled%202.png" alt="Untitled"></p>
+<p>Figure 2: <em>Reload function of public class Weapon : MonoBehaviour</em></p>
+<p>In Ravenfield, these scripts are somewhat responsible for how the player’s weapon should behave. It is clear that this there are different weapons that a player can hold, as we can see from Figure 1. Additionally, the Reload() function from Figure 2 reveals that there are member variables for the Weapon class that we can be modified such as this.holdingFire, this,reloading, this.ammo, etc.</p>
+<p><strong>Writing an Ammo Modifier</strong></p>
+<p>Using the information from earlier, we can create a C# script containing our ammo hack.</p>
+<p>In our C# class library, Assembly-CSharp.dll and all UnityEngine related dll files will be added as references. Assembly-CSharp.dll contains the compiled code from Ravenfield, and will act as our dependency for our hack. The UnityEngine related DLL files contains methods needed to get our hack properly load, and will act as our “base”.  We add these dlls files because it allows our project to use classes, methods, and other types defined from the game.</p>
+<p><img src="Untitled%203.png" alt="Untitled"></p>
+<p><img src="Untitled%204.png" alt="Untitled"></p>
+<p>Our Loader class will use a “GameObject”, which essentially is a basic building block of a Unity scene. They do not accomplish much in themselves but act as containers for Components, which implement functionality for a Unity game (It gives us a way to interact with the game world). In our case, we will create a new GameObject to add our Hack class as a component.</p>
+<p>In this code snippet, the Init() function will initialize our GameObject and add our hack to it. The Unload() function will give us a way to destroy the GameObject and remove our hack from the game.</p>
+<p><img src="Untitled%205.png" alt="Untitled"></p>
+<p>The Hack class inherits the MonoBehaviour class, which is the base class for every Unity script. It gives us access to important functions such as Start() and Update().</p>
+<p>Unity scripts typically contain two functions called Start() and Update(). The Start() function is called once when an object that the script is attached to is first created or enabled. We will ignore this for now, as we will be focusing on the Update() function. Since the Update() function is called every frame, it is a perfect place to put our hack.</p>
+<p>The Update() function will contain our hack. In the this function, we set the weapon variable to  an instance of the player’s active weapon. By changing the weapon’s ammo to “999” in the Update() function, every time our local player shoots it will remain the same.</p>
+<p><strong>Part Two</strong></p>
+<p><strong>Part 2: Injecting the Hack</strong></p>
+<p>The hack we have created so far is practically a Unity script, therefore we will need to find an appropriate method to load it. This can be achieved through various techniques such as DLL injection, however, we need to adjust our methods accordingly so that is properly loaded and executed within the game’s process.</p>
+<p><img src="Untitled%206.png" alt="Untitled"></p>
+<p><em>Figure A: Injection Flowchart</em></p>
+<p>Above is a flowchart: We will create a special DLL file, “mono_load.dll” that is responsible for calling native unity functions. These native unity functions will properly load  the hack, “Hack.dll” within the game’s process.  In order for mono_load.dll to access the native functions, we will finally create a traditional DLL injector called “mono_inject.exe” .</p>
+<p><strong>Calling Native Unity Functions</strong></p>
+<p>Now that we have created our hack, how will we able to load it into the game? Well, this can be accomplished by calling native functions from the mono library of the Unity game (invoked from within a DLL file). These native functions will be called from a DLL file, and is essential in getting our hack running.</p>
+<p>Looking at the Mono <a href="http://docs.go-mono.com/index.aspx?link=xhtml%3Adeploy%2Fmono-api-domains.html">documentation</a>, we can conclude that the functions we need are : <code>mono_get_root_domain</code>, <code>mono_thread_attach</code>, <code>mono_assembly_open</code>, <code>mono_assembly_get_image</code>,</p>
+<p><code>mono_class_get_method_from_name</code>, and <code>mono_runtime_invoke</code>.</p>
+<p>For the mono loader DLL file, we create the type definitions:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#66d9ef">use</span> libc::{c_char, c_int, c_void};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">pub</span> <span style="color:#66d9ef">type</span> <span style="color:#a6e22e">TMonoGetRootDomain</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">extern</span> <span style="color:#e6db74">&#34;C&#34;</span> <span style="color:#66d9ef">fn</span>() -&gt; <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">pub</span> <span style="color:#66d9ef">type</span> <span style="color:#a6e22e">TMonoAssemblyOpen</span> <span style="color:#f92672">=</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">extern</span> <span style="color:#e6db74">&#34;C&#34;</span> <span style="color:#66d9ef">fn</span>(filename: <span style="color:#f92672">*</span><span style="color:#66d9ef">const</span> c_char, status: <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void) -&gt; <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">pub</span> <span style="color:#66d9ef">type</span> <span style="color:#a6e22e">TMonoThreadAttach</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">extern</span> <span style="color:#e6db74">&#34;C&#34;</span> <span style="color:#66d9ef">fn</span>(domain: <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void) -&gt; <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">pub</span> <span style="color:#66d9ef">type</span> <span style="color:#a6e22e">TMonoAssemblyGetImage</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">extern</span> <span style="color:#e6db74">&#34;C&#34;</span> <span style="color:#66d9ef">fn</span>(assembly: <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void) -&gt; <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">pub</span> <span style="color:#66d9ef">type</span> <span style="color:#a6e22e">TMonoClassFromName</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">extern</span> <span style="color:#e6db74">&#34;C&#34;</span> <span style="color:#66d9ef">fn</span>(
+</span></span><span style="display:flex;"><span>    image: <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void,
+</span></span><span style="display:flex;"><span>    name_space: <span style="color:#f92672">*</span><span style="color:#66d9ef">const</span> c_char,
+</span></span><span style="display:flex;"><span>    name: <span style="color:#f92672">*</span><span style="color:#66d9ef">const</span> c_char, 
+</span></span><span style="display:flex;"><span>) -&gt; <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">pub</span> <span style="color:#66d9ef">type</span> <span style="color:#a6e22e">TMonoClassGetMethodFromName</span> <span style="color:#f92672">=</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">extern</span> <span style="color:#e6db74">&#34;C&#34;</span> <span style="color:#66d9ef">fn</span>(klass: <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void, name: <span style="color:#f92672">*</span><span style="color:#66d9ef">const</span> c_char, param_count: <span style="color:#a6e22e">c_int</span>) -&gt; <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">pub</span> <span style="color:#66d9ef">type</span> <span style="color:#a6e22e">TMonoRuntimeInvoke</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">extern</span> <span style="color:#e6db74">&#34;C&#34;</span> <span style="color:#66d9ef">fn</span>(
+</span></span><span style="display:flex;"><span>    method: <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void,
+</span></span><span style="display:flex;"><span>    obj: <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void,
+</span></span><span style="display:flex;"><span>    params: <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void,
+</span></span><span style="display:flex;"><span>    exc: <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void,
+</span></span><span style="display:flex;"><span>) -&gt; <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> c_void;
+</span></span></code></pre></div><p>The types we defined will be used the following manner:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#66d9ef">let</span> mono_module <span style="color:#f92672">=</span> <span style="color:#66d9ef">unsafe</span> { GetModuleHandleA(handle_str.as_ptr()) }; <span style="color:#75715e">// mono-2.0-bdwgc.dll
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>    println!(<span style="color:#e6db74">&#34;mono_module address: </span><span style="color:#e6db74">{:?}</span><span style="color:#e6db74">&#34;</span>, mono_module);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">let</span> c1 <span style="color:#f92672">=</span> CString::new(<span style="color:#e6db74">&#34;mono_get_root_domain&#34;</span>).unwrap();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">let</span> get_root_domain_addr <span style="color:#f92672">=</span> <span style="color:#66d9ef">unsafe</span> { GetProcAddress(mono_module, c1.as_ptr()) };
+</span></span><span style="display:flex;"><span>    println!(
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;get_root_domain address </span><span style="color:#e6db74">{:?}</span><span style="color:#e6db74">&#34;</span>,
+</span></span><span style="display:flex;"><span>        get_root_domain_addr <span style="color:#66d9ef">as</span> <span style="color:#66d9ef">usize</span>
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">let</span> get_root_domain_m: <span style="color:#a6e22e">types</span>::TMonoGetRootDomain <span style="color:#f92672">=</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">unsafe</span> { std::mem::transmute(get_root_domain_addr) };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">let</span> mono_domain <span style="color:#f92672">=</span> get_root_domain_m();
+</span></span><span style="display:flex;"><span>    println!(<span style="color:#e6db74">&#34;result: </span><span style="color:#e6db74">{:?}</span><span style="color:#e6db74">&#34;</span>, mono_domain);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> mono_domain <span style="color:#66d9ef">as</span> <span style="color:#66d9ef">usize</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span> {
+</span></span><span style="display:flex;"><span>        println!(<span style="color:#e6db74">&#34;Failed to get root domain.&#34;</span>);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> String::from(<span style="color:#e6db74">&#34;Failed to get root domain.&#34;</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span></code></pre></div><p><em>Code snippet of how functions are called</em></p>
+<p>In this snippet from our DLL, the GetModuleHandle function retrieves a module handle for our mono library. It is usually named “mono.dll” or “mono-2.0-bdwgc.dl”. After that, we use the Windows API, GetProcAddress, to retrieve the address of our target export function. In this code snippet, we are getting “mono_get_root_domain”.  After getting it address, we use std::mem::transmute to cast it to a function pointer from one of the types defined earlier (TMonoGetRootDomain). Doing this will allow us to call the native unity functions that will load our hack.</p>
+<p>This approach will be used by the functions: mono_get_root_domain, mono_thread_attach, mono_assembly_open, mono_assembly_get_image, mono_class_from_name, mono_class_get_method_from_name, and mono_runtime_invoke. Sometimes, the functions require arguments to be passed. The parameters such as our dll path, and namespace or class, is  included for the other defined functions as well.</p>
+<p>Following that, we will provide the user with clear feedback on the success of the operations performed. I have created a pipe operation function that will be used to notify the user  that the functions from mono have executed successfully. (It will print out “Success! “. )</p>
+<p>Now, we can focus on the next step which is injecting our mono load DLL file into the target application, Ravenfield. We will  find a way to inject our DLL file as it currently exists outside the target application’s address space.</p>
+<p><strong>Injecting the Loader</strong></p>
+<p>Since what we have created so far exists outside of the target application&rsquo;s address space, the DLL file will not be able to call the native mono functions.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#66d9ef">let</span> dll_addr <span style="color:#f92672">=</span> <span style="color:#66d9ef">unsafe</span> {
+</span></span><span style="display:flex;"><span>        wmem::VirtualAllocEx(
+</span></span><span style="display:flex;"><span>            proc,
+</span></span><span style="display:flex;"><span>            ptr::null_mut(),
+</span></span><span style="display:flex;"><span>            path_len,
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">MEM_RESERVE</span> <span style="color:#f92672">|</span> <span style="color:#66d9ef">MEM_COMMIT</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">PAGE_EXECUTE_READWRITE</span>,
+</span></span><span style="display:flex;"><span>        )
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    werr!(dll_addr.is_null());
+</span></span><span style="display:flex;"><span>    log::debug!(<span style="color:#e6db74">&#34;inject - allocated remote memory @ {:?}&#34;</span>, dll_addr);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">let</span> res <span style="color:#f92672">=</span> <span style="color:#66d9ef">unsafe</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// write dll inside target process
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        wmem::WriteProcessMemory(
+</span></span><span style="display:flex;"><span>            proc,
+</span></span><span style="display:flex;"><span>            dll_addr,
+</span></span><span style="display:flex;"><span>            full_path.as_ptr() <span style="color:#66d9ef">as</span> <span style="color:#f92672">*</span><span style="color:#66d9ef">mut</span> _,
+</span></span><span style="display:flex;"><span>            path_len,
+</span></span><span style="display:flex;"><span>            ptr::null_mut(),
+</span></span><span style="display:flex;"><span>        )
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    werr!(res <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">let</span> krnl <span style="color:#f92672">=</span> CString::new(<span style="color:#e6db74">&#34;kernel32.dll&#34;</span>).unwrap();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">let</span> krnl <span style="color:#f92672">=</span> <span style="color:#66d9ef">unsafe</span> { wload::GetModuleHandleA(krnl.as_ptr()) };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">let</span> loadlib <span style="color:#f92672">=</span> CString::new(<span style="color:#e6db74">&#34;LoadLibraryW&#34;</span>).unwrap();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">let</span> loadlib <span style="color:#f92672">=</span> <span style="color:#66d9ef">unsafe</span> { wload::GetProcAddress(krnl, loadlib.as_ptr()) };
+</span></span><span style="display:flex;"><span>    log::debug!(<span style="color:#e6db74">&#34;found LoadLibraryW for injection at {:?}&#34;</span>, loadlib);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">let</span> hthread <span style="color:#f92672">=</span> <span style="color:#66d9ef">unsafe</span> {
+</span></span><span style="display:flex;"><span>        wproc::CreateRemoteThread(
+</span></span><span style="display:flex;"><span>            proc,
+</span></span><span style="display:flex;"><span>            ptr::null_mut(),
+</span></span><span style="display:flex;"><span>            <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>            Some(mem::transmute(loadlib)),
+</span></span><span style="display:flex;"><span>            dll_addr,
+</span></span><span style="display:flex;"><span>            <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>            ptr::null_mut(),
+</span></span><span style="display:flex;"><span>        )
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    werr!(hthread.is_null());
+</span></span><span style="display:flex;"><span>    log::debug!(<span style="color:#e6db74">&#34;spawned remote thread at {:?}&#34;</span>, hthread);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">unsafe</span> {
+</span></span><span style="display:flex;"><span>        whandle::CloseHandle(hthread);
+</span></span><span style="display:flex;"><span>    }
+</span></span></code></pre></div><p>To get inject mono load DLL to Ravenfield, we allocate and write the mono load DLL to the game&rsquo;s memory using Windows’s VirtualAllocEx and WriteProcessMemory functions.  The functions GetModuleHandleA and GetProcAddress locate the DLL&rsquo;s entry point, and CreateRemoteThread starts a new thread within the target process at the DLL&rsquo;s entry point. After creating the thread, we release the associated resources by closing the handle using CloseHandle.</p>
+<p><strong>Preview</strong></p>
+<p><img src="Untitled%207.png" alt="Untitled"></p>
+<p><em>Passing the arguments needed</em></p>
+<p><img src="rvmono-min.gif" alt="rvmono-min.gif"></p>
+<p>As you can see, we are able to create an infinite ammo hack for our game.</p>
+<p><strong>Conclusion</strong></p>
+<p>This write-up provides educational content about reversing Unity mono games, and the creation of a mono injector for loading hacks. By sharing the process of developing a simple hack for the game Ravenfield and creating a simple injector, this write-up highlights potential vulnerabilities that game developers can be aware of.</p>
+
+</article>
+
+            </div>
+        </main>
+    </body></html>

@@ -2,22 +2,25 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://mizt0.github.io/posts/crkme/ctf-kkkklik/</loc>
-    <lastmod>2023-06-29T00:00:00+00:00</lastmod>
+    <loc>https://mizt0.github.io/posts/ctf-r2/</loc>
+    <lastmod>2023-07-30T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://mizt0.github.io/posts/</loc>
+    <lastmod>2023-07-30T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://mizt0.github.io/posts/ctf-kkkklik/</loc>
     <lastmod>2023-06-29T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://mizt0.github.io/posts/all/unity-il2cpp/</loc>
+    <loc>https://mizt0.github.io/posts/unity-il2cpp/</loc>
     <lastmod>2023-06-11T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://mizt0.github.io/posts/all/unity-mono/</loc>
+    <loc>https://mizt0.github.io/posts/unity-mono/</loc>
     <lastmod>2023-05-07T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://mizt0.github.io/posts/crkme/crkme-minivm/</loc>
+    <loc>https://mizt0.github.io/posts/crkme-minivm/</loc>
     <lastmod>2023-02-07T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://mizt0.github.io/posts/crkme/crkme1-win32/</loc>
+    <loc>https://mizt0.github.io/posts/crkme1-win32/</loc>
     <lastmod>2023-01-31T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://mizt0.github.io/</loc>

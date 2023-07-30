@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en-us"><head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+   <meta name="description" content="Objective today: Obtain the game’s source code / important metadata
+In the previous post, I wrote about Unity’s default scripting backend (Mono) and discussed how it can be vulnerable to modifications for game hacking/ modding. I explained that the game’s underlying mechanics could easily be decompiled since the source code was accessible. In today’s write-up, I will share how I reverse engineered IL2CPP, which is very different from Mono. I will share information about the IL2CPP backend and the my attempt of obtaining an IL2CPP game’s source code.">  
+
+  <title>
+    
+      Unity IL2CPP Exploration
+    
+  </title>
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/" />
+  
+  
+  
+  <link rel="stylesheet" href="/css/main.00560f858a9781071a6d5647bcb31b19ba3fedbd628c7fbab8cda30e40cfb52ac46cba7961320e250962ad9eed59fe491958fce64619a841076cb489a4643095.css" integrity="sha512-AFYPhYqXgQcabVZHvLMbGbo/7b1ijH&#43;6uM2jDkDPtSrEbLp5YTIOJQlirZ7tWf5JGVj85kYZqEEHbLSJpGQwlQ==" />
+  
+</head>
+<body a="auto">
+        <main class="page-content" aria-label="Content">
+            <div class="w">
+<a href="/">..</a>
+
+<article>
+    <p class="post-meta">
+        <time datetime="2023-06-11 00:00:00 &#43;0000 UTC">
+            2023-06-11
+        </time>
+    </p>
+
+    <h1>Unity IL2CPP Exploration</h1>
+
+    
+
+    <p><code>Objective today: Obtain the game’s source code / important metadata</code></p>
+<p>In the previous post, I wrote about Unity’s default scripting backend  (Mono) and discussed how it can be vulnerable to modifications for game hacking/ modding. I explained that the game’s underlying mechanics could easily be decompiled since the source code was accessible. In today’s write-up, I will share how I reverse engineered IL2CPP, which is very different from Mono. I will share information about the IL2CPP backend and the my attempt of obtaining an IL2CPP game’s source code.</p>
+<p><strong>Background Information</strong></p>
+<p>IL2CPP is an alternative scripting backend to Mono which was introduced to Unity in 2015.</p>
+<p>Last time, we explored Ravenfield, a Unity mono game that runs on Windows platforms. We were easily able to obtain the source code and create a simple infinite ammo hack. <a href="https://midzt.github.io/posts/all/unity-mono/">(See last post here)</a>. However, things changed when I tried to make an IL2CPP hack. It was very time consuming to obtain the game’s source code. So, what makes it difficult to obtain an IL2CPP game’s source code?</p>
+<p>Usually, a Unity game is distributed as .NET assemblies that the managed runtime (CLR) runs on the chosen platform, just like any other .NET application. The Mono backend allows these .NET assemblies run in different platforms However, these . NET assemblies, could easily be decompiled. as the Intermediate Language created contains important metadata.  Unlike Mono, IL2CPP gathers these assemblies, parses the IL code, creates C++ code that is directly compiled to machine code. Because these assemblies are compiled to machine code, it requires knowledge of x86/ARM and will be much more time consuming to reverse engineer.</p>
+<p><strong>Reverse Engineering</strong></p>
+<p>I actually wanted to try out reverse engineering a different platform aside from Windows (x86), and stumbled an its .apk file lying around my desktop. It was an old version of Pokemon Go and uses IL2CPP, which is just what I was looking for.</p>
+<p>Before I attempt to obtain it’s source code,  I learned about the IL2CPP loading process.</p>
+<p><strong>IL2CPP Loading Process</strong></p>
+<p>IL2CPP uses the platform-specific memory-mapped file support to load the global-metadata.dat file into read-only memory.</p>
+<p><img src="Untitled.png" alt="Untitled"></p>
+<p>In the <code>il2cpp::vm::MetadataCache::Initialize</code> function, A file named “global-metadata.dat” is loaded and saved to the global variable: MetadataFile <em>(This is a dword)</em> . During the build process of an IL2CPP game, this global-metadata.dat file is used and contains .NET metadata that libil2cpp.so will need at runtime.</p>
+<p>While investigating the <code>il2cpp::vm::MetadataLoader::LoadMetadataFile</code> function:</p>
+<p><img src="Untitled%201.png" alt="Untitled"></p>
+<p>I noticed that the LoadMetadataFile function tries to find this <code>global-metadata.dat</code> file somewhere in our disk. It maps <code>global-metadata.dat</code> into memory and returns the pointer to this memory-mapped metadata file</p>
+<p>We need to take note of the value (pointer) returned by this function because it is important.  All accesses to the metadata by IL2CPP will occur via this pointer.</p>
+<p>A case where we can see this pointer is being used<code>il2cpp::vm::MetadataCache::GetStringFromIndex</code></p>
+<p>For example:</p>
+<p><img src="Untitled%202.png" alt="Untitled"></p>
+<p><img src="Untitled%203.png" alt="Untitled"></p>
+<p><strong>Parsing Metadata</strong></p>
+<p>We discovered that IL2CPP loads a metadata file that accessed during runtime. Now, we will explore the contents within that file, and create a metadata parser.</p>
+<p><img src="Untitled%204.png" alt="Untitled"></p>
+<p>As we can see, <code>global-metadata.dat</code> contains information about the game.</p>
+<p><img src="Screenshot_2023-06-08_180014.png" alt="Screenshot 2023-06-08 180014.png"></p>
+<p>Initially, the first 4 bytes is AF 1B B1 FA. In little-endian , it is 0xFAB11BFA — which tells us that it is a correct metadata file. Following that is the version, which is 21.</p>
+<p>A better way to view  <code>global-metadata.dat</code> is by creating a metadata parser. With this metadata parser, we are able to effectively handle the structure obtained from the IL2CPP header file:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#66d9ef">pub</span> <span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Il2CppGlobalMetadataHeader</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">pub</span> sanity: <span style="color:#66d9ef">i32</span>, <span style="color:#75715e">// check valid
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">pub</span> version: <span style="color:#66d9ef">i32</span>,  <span style="color:#75715e">// version 
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">pub</span> string_literal_offset: <span style="color:#66d9ef">i32</span>, 
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">pub</span> string_literal_count: <span style="color:#66d9ef">i32</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">..</span>. 
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#66d9ef">let</span> (_, metadata_hdr) <span style="color:#f92672">=</span>
+</span></span><span style="display:flex;"><span>            parse_metadata_header(<span style="color:#f92672">&amp;</span>data).expect(<span style="color:#e6db74">&#34;Failed to parse metadata header&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        println!(<span style="color:#e6db74">&#34;Loader Sanity: </span><span style="color:#e6db74">{}</span><span style="color:#e6db74">&#34;</span>, metadata_hdr.sanity);
+</span></span><span style="display:flex;"><span>        println!(<span style="color:#e6db74">&#34;Loader Version: </span><span style="color:#e6db74">{}</span><span style="color:#e6db74">&#34;</span>, metadata_hdr.version);
+</span></span></code></pre></div><p>The code above parses the metadata file contents to <code>Il2CppGlobalMetadataHeader</code>.</p>
+<p>This metadata parser follows the same pattern above but for different IL2CPP structures found from the Unity IL2CPP header file.</p>
+<p><strong>Code and Metadata Registration</strong></p>
+<p>In the IL2CPP so file, the Code Registration and Metadata Registration contains pointers / offset values which helps us find connections between the the content of the metadata file and actual function addresses.</p>
+<p><img src="Untitled%205.png" alt="Untitled"></p>
+<p>It is apparent that the functions from the binary do not have enough information to understand how the game specifically works. Therefore, we need to find the code registration and metadata registration.</p>
+<p><img src="Untitled%206.png" alt="Untitled"></p>
+<p>The <code>il2cpp::vm::MetadataCache::Register</code> function takes in arguments CodeRegistration <em>(dword_1448398 or 0x1448398)</em> and MetadataRegistration <em>(dword_1469ad0 or 0x1469ad0).</em></p>
+<p><strong>Results</strong></p>
+<p><img src="Screenshot_2023-06-09_132303.png" alt="Screenshot 2023-06-09 132303.png"></p>
+<p><em>Figure 1: Namespace of Unity engine</em></p>
+<p><img src="Screenshot_2023-06-09_132402.png" alt="Screenshot 2023-06-09 132402.png"></p>
+<p><em>Figure 2: Fields of Pokemon class</em></p>
+<p><img src="Untitled%207.png" alt="Untitled"></p>
+<p><em>Figure 3: List of images used</em></p>
+<p>Looking at the results, we were able to get important information about the IL2CPP game. Although our objective was to obtain the game’s source code, this was not really what we got. The outcome was mostly classes/ structures needed by the game. The method names of the original game’s source code was extracted, however, we will still need to manually read ARM assembly code line by line.</p>
+<p><a href="https://github.com/midzt/il2cpp-analyzer">(See source code here)</a></p>
+<p><strong>Conclusion</strong></p>
+<p>We are able to obtain information about the IL2CPP game.  Although it may seem different from mono, a reverse engineer can still find ways to extract important information. The game mechanic source code will still be in assembly, but with this information it is not that much of a challenge.</p>
+<p><strong>References</strong>:</p>
+<p><a href="https://docs.unity3d.com/Manual/scripting-backends.html">https://docs.unity3d.com/Manual/scripting-backends.html</a></p>
+<p><a href="https://katyscode.wordpress.com/2020/06/24/il2cpp-part-1/">https://katyscode.wordpress.com/2020/06/24/il2cpp-part-1/</a></p>
+<p><a href="https://blog.unity.com/technology/the-future-of-scripting-in-unity">https://blog.unity.com/technology/the-future-of-scripting-in-unity</a></p>
+<p><a href="https://docs.unity3d.com/Manual/IL2CPP.html#HowItWorks">https://docs.unity3d.com/Manual/IL2CPP.html#HowItWorks</a></p>
+
+</article>
+
+            </div>
+        </main>
+    </body></html>
