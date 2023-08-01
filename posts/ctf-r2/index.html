@@ -3,11 +3,10 @@
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-   <meta name="description" content="For quite some time now, I’ve been interested in mobile app security. This has led me to explore the Android operating system and discover challenging CTFs/Crack Mes. In this write-up, I will showcase my approach to reversing one of these intriguing Crack Mes: Android UnCrackable L4 (Radare2 Pay)
+   <meta name="description" content="For quite some time now, I’ve been interested in mobile app security. This has led me to explore the Android operating system and discover challenging CTFs/Crack Mes. In this write-up, I will showcase my approach to reversing one of these Crack Mes: Android UnCrackable L4 (Radare2 Pay)
 The Challenge
 Can you verify that this is cryptographically unbreakable?
-The program is an apk file, and contains many anti-analysis tricks.
-Static Analysis">  
+The program: Android UnCrackable L4 (Radare2 Pay), is an APK file, and is known to implement anti-analysis techniques.">  
 
   <title>
     
@@ -30,8 +29,8 @@ Static Analysis">
 
 <article>
     <p class="post-meta">
-        <time datetime="2023-07-30 00:00:00 &#43;0000 UTC">
-            2023-07-30
+        <time datetime="2023-08-01 00:00:00 &#43;0000 UTC">
+            2023-08-01
         </time>
     </p>
 
@@ -39,12 +38,29 @@ Static Analysis">
 
     
 
-    <p>For quite some time now, I’ve been interested in mobile app security. This has led me to explore the Android operating system and discover challenging CTFs/Crack Mes. In this write-up, I will showcase my approach to reversing one of these intriguing Crack Mes:  Android UnCrackable L4 (Radare2 Pay)</p>
+    <p>For quite some time now, I’ve been interested in mobile app security. This has led me to explore the Android operating system and discover challenging CTFs/Crack Mes. In this write-up, I will showcase my approach to reversing one of these Crack Mes:  Android UnCrackable L4 (Radare2 Pay)</p>
 <p><strong>The Challenge</strong></p>
 <p><code>Can you verify that this is cryptographically unbreakable?</code></p>
-<p>The program is an apk file, and contains many anti-analysis tricks.</p>
-<p><strong>Static Analysis</strong></p>
-<p>&hellip;</p>
+<p>The program: Android UnCrackable L4 (Radare2 Pay), is an APK file, and is known to implement anti-analysis techniques.</p>
+<p><strong>Anti-Analysis</strong></p>
+<p>When attempting to run the program in a debugging environment, the program automatically closes.</p>
+<p><img src="Untitled%201.png" alt="Untitled"></p>
+<p><em>Figure 1 - An example of a function checking if the program is being analyzed</em></p>
+<p><img src="Untitled%202.png" alt="Untitled"></p>
+<p><em>Figure 2 -  Method “j” that calls other anti-analysis methods</em></p>
+<p>I created a Frida script to patch this anti-analysis function:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-jsx" data-lang="jsx"><span style="display:flex;"><span><span style="color:#a6e22e">Java</span>.<span style="color:#a6e22e">perform</span>(<span style="color:#66d9ef">function</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">var</span> <span style="color:#a6e22e">a</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">Java</span>.<span style="color:#a6e22e">use</span>(<span style="color:#e6db74">&#34;b.a.a.c.a&#34;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">a</span>[<span style="color:#e6db74">&#39;j&#39;</span>].<span style="color:#a6e22e">implementation</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">function</span> () {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">false</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span> }
+</span></span><span style="display:flex;"><span>)
+</span></span></code></pre></div><p><img src="Untitled%203.png" alt="Untitled"></p>
+<p>When I tried to run the Frida script, the program did not continue due to an invalid address error.</p>
+<p>I made an asumption that it had some sort of anti-tampering against Frida. So, patching functions at the moment is not an option.</p>
+<p><strong>Reversing the Native Library</strong></p>
+<p>..</p>
 
 </article>
 

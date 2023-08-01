@@ -10,14 +10,13 @@
     <item>
       <title>CTF:android-r2pay</title>
       <link>https://mizt0.github.io/posts/ctf-r2/</link>
-      <pubDate>Sun, 30 Jul 2023 00:00:00 +0000</pubDate>
+      <pubDate>Tue, 01 Aug 2023 00:00:00 +0000</pubDate>
       
       <guid>https://mizt0.github.io/posts/ctf-r2/</guid>
-      <description>For quite some time now, I’ve been interested in mobile app security. This has led me to explore the Android operating system and discover challenging CTFs/Crack Mes. In this write-up, I will showcase my approach to reversing one of these intriguing Crack Mes: Android UnCrackable L4 (Radare2 Pay)
+      <description>For quite some time now, I’ve been interested in mobile app security. This has led me to explore the Android operating system and discover challenging CTFs/Crack Mes. In this write-up, I will showcase my approach to reversing one of these Crack Mes: Android UnCrackable L4 (Radare2 Pay)
 The Challenge
 Can you verify that this is cryptographically unbreakable?
-The program is an apk file, and contains many anti-analysis tricks.
-Static Analysis</description>
+The program: Android UnCrackable L4 (Radare2 Pay), is an APK file, and is known to implement anti-analysis techniques.</description>
     </item>
     
     <item>
